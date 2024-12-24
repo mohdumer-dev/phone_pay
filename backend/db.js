@@ -1,4 +1,5 @@
 const mongoose = require("mongoose");
+const { boolean } = require("zod");
 const Schema = mongoose.Schema;
 const ObjectId = Schema.ObjectId;
 
@@ -32,13 +33,14 @@ const UserSchema = new Schema({
     minlength: 4,
     maxlength: 50,
   },
+  isVerified: { type: Boolean, default: false },
 });
 
 // Define Account Schema
 const AccountSchema = new Schema({
   userId: {
     type: ObjectId,
-    ref: 'User', // Reference to the User model
+    ref: "User", // Reference to the User model
     required: true,
   },
   balance: {
@@ -49,8 +51,8 @@ const AccountSchema = new Schema({
 });
 
 // Create Models
-const UserModel = mongoose.model('User', UserSchema);
-const AccountModel = mongoose.model('Account', AccountSchema);
+const UserModel = mongoose.model("User", UserSchema);
+const AccountModel = mongoose.model("Account", AccountSchema);
 
 module.exports = {
   UserModel,
