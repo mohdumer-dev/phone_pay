@@ -1,38 +1,28 @@
 const { Router } = require("express");
 const UserRoute = Router();
 const { UserModel, AccountModel } = require("../db");
-const { findOne, findOneAndUpdate } = require("mongoose/lib/model");
 const jwt = require("jsonwebtoken");
 const JWT_SECRET = "hb8989asdv787989wqweqwe88ssca8ad8w83";
-const JWT_LOGIN="njkdnakjs-dd99asd-asdasd98avbbgnswrgs88"
-const cookieParser = require("cookie-parser");
+const JWT_LOGIN = "njkdnakjs-dd99asd-asdasd98avbbgnswrgs88";
+// const cookieParser = require("cookie-parser");
 const { sendMail } = require("../email");
+const bcrypt = require("bcrypt");
 
-const userMiddleware=require('../middleware/user')
-
-UserRoute.get("/", (req, res) => {
-  res.json("Everything working fine");
-});
+const userMiddleware = require("../middleware/user");
 
 UserRoute.post("/signup", async (req, res) => {
   const { firstname, email, password, lastname } = req.body;
-  //Checking the user for to resens the Verification Link
+  //Checking the user for to resend the Verification Link
   const existinguser = await UserModel.findOne({
     email,
-    password,
     isVerified: false,
   });
-
-  if (existinguser) {
-    const verificationToken = await jwt.sign({id:existinguser._id}, JWT_SECRET);
-    const verificationLink = `http://192.168.29.252:3000/api/v1/user/verification?token=${verificationToken}`;
-    await sendMail(existinguser.email, verificationLink);
-    res.json("Another Verification Send");
-  } else {
+  if (!existinguser) {
+    const hashedPassword = await bcrypt.hash(password, 8);
     const User = await UserModel.create({
       firstname,
       email,
-      password,
+      password: hashedPassword,
       lastname,
     });
 
@@ -41,12 +31,26 @@ UserRoute.post("/signup", async (req, res) => {
     await sendMail(User.email, verificationLink);
     res.json("Verification Link Send");
   }
+
+  const hashedpassword = bcrypt.compareSync(password, existinguser.password);
+
+  if (!hashedpassword) {
+    res.status(404).json("Email or Password Incorrect");
+  } else {
+    const verificationToken = await jwt.sign(
+      { id: existinguser._id },
+      JWT_SECRET
+    );
+    const verificationLink = `http://192.168.29.252:3000/api/v1/user/verification?token=${verificationToken}`;
+    await sendMail(existinguser.email, verificationLink);
+    res.json("Another Verification Send");
+  }
 });
 
 UserRoute.get("/verification", async (req, res) => {
   const token = req.query.token;
-  const decodedToken=jwt.verify(token,JWT_SECRET)
-  console.log(decodedToken)
+  const decodedToken = jwt.verify(token, JWT_SECRET);
+  console.log(decodedToken);
   if (!token) {
     res.status(404).json({ msg: "User Not Exist " });
   }
@@ -59,7 +63,10 @@ UserRoute.get("/verification", async (req, res) => {
         isVerified: true,
       }
     );
-    res.json({ msg: "User Verified", username: User.firstname });
+    res.json({
+      msg: "User Verified , Please Signin Now",
+      username: User.firstname,
+    });
   } else {
     res.status(404).json({ msg: "Please Signup Again" });
   }
@@ -67,29 +74,57 @@ UserRoute.get("/verification", async (req, res) => {
 
 UserRoute.post("/signin", async (req, res) => {
   const { email, password } = req.body;
-  const nonVerified = await UserModel.findOne({email,password,isVerified:false})
-  if(nonVerified){
-    res.status(404).json({msg:"Please Verify"})
+  const nonVerified = await UserModel.findOne({
+    email,
+    password,
+    isVerified: false,
+  });
+  if (nonVerified) {
+    res.status(404).json({ msg: "Please Verify" });
   }
   const User = await UserModel.findOne({
     email,
-    password,
+    // password
   });
   if (!User) {
     res.status(422).json({ msg: "Invalid User" });
   }
-  const token =jwt.sign({id:User._id},JWT_LOGIN)
-  res.json({msg:token})
+  const hashedPassword = await bcrypt.compare(password, User.password);
+  if (!hashedPassword) {
+    res.status(404).json("Email or password is incorrect");
+  }
+  const Wallet = await AccountModel.create({
+    userId: User._id,
+    balance: 20000,
+  });
+  const token = jwt.sign({ id: User._id }, JWT_LOGIN);
+  res.json({ msg: token, balance: Wallet.balance });
 });
 
-UserRoute.get('/me',userMiddleware,async(req,res)=>{
-    const _id= req.data
-    const User=await UserModel.findOne({_id})
-    res.json(User.firstname)
-   
-})
+UserRoute.get("/me", userMiddleware, async (req, res) => {
+  const _id = req.data;
+  const User = await UserModel.findOne({ _id });
+  res.json(User.firstname);
+});
 
+UserRoute.put("/me", userMiddleware, async (req, res) => {
+  const _id = req.data;
+  const { password, firstname, lastname } = req.body;
+  //   const hashedPassword = await bcrypt.hash(password, 8);
+  const User = await UserModel.findOneAndUpdate(
+    { _id },
+    { firstname, lastname }
+  );
+  res.json({ Changed: "Updated Firstname and Lastname" });
+});
 
+UserRoute.get("/bulk", userMiddleware, async (req, res) => {
+  const filter = req.query.filter ||  "";
+  const User = await UserModel.find({
+    $or: [{ firstname: { $regex: filter } }, { lastname: { $regex: filter } }],
+  });
+  res.json({User})
+});
 module.exports = {
   UserRoute,
 };
