@@ -3,12 +3,14 @@ const app = express();
 const mongoose = require("mongoose");
 const { UserRoute } = require("./routes/user");
 const cookieParser = require('cookie-parser')
+const  AccountRoute =require('./routes/account')
 
 
 
 app.use(express.json())
 app.use(cookieParser())
 app.use("/api/v1/user", UserRoute);
+app.use('/api/v1/account',AccountRoute)
 
 app.listen(3000, () => {
   try {
