@@ -1,4 +1,4 @@
-const { Router } = require("express");
+const { Router, response } = require("express");
 const UserRoute = Router();
 const { UserModel, AccountModel } = require("../db");
 const jwt = require("jsonwebtoken");
@@ -28,8 +28,8 @@ UserRoute.post("/signup", async (req, res) => {
 
   const { success, error } = userObject.safeParse(req.body);
   if (!success) {
-    res.status(403).json({ error });
-    return
+    res.status(403).json({response:error});
+    return;
   }
 
   const existinguser = await UserModel.findOne({
@@ -46,34 +46,35 @@ UserRoute.post("/signup", async (req, res) => {
       lastname,
     });
     const verificationToken = await jwt.sign({ id: User._id }, JWT_SECRET);
-    const verificationLink = `http://192.168.29.252:3000/api/v1/user/verification?token=${verificationToken}`;
+    const verificationLink = `http://localhost:5173/verify-email?token=${verificationToken}`;
     await sendMail(User.email, verificationLink);
-    res.json("Verification Link Send");
-    return
+    res.json({response:"Verification Link Send"});
+    return;
   }
 
   const hashedpassword = bcrypt.compareSync(password, existinguser.password);
 
   if (!hashedpassword) {
-    res.status(404).json("Email or Password Incorrect");
+    res.status(404).json({response:"Email or Password Incorrect"});
   } else {
     const verificationToken = await jwt.sign(
       { id: existinguser._id },
       JWT_SECRET
     );
-    const verificationLink = `http://192.168.29.252:3000/api/v1/user/verification?token=${verificationToken}`;
+    const verificationLink = `http://localhost:5173/verify-email?token=${verificationToken}`;
     await sendMail(existinguser.email, verificationLink);
-    res.json("Another Verification Send");
-    return
+    res.json({response:"Another Verification Send"});
+    return;
   }
 });
 
 UserRoute.get("/verification", async (req, res) => {
+ 
   const token = req.query.token;
   const decodedToken = jwt.verify(token, JWT_SECRET);
   console.log(decodedToken);
   if (!token) {
-    res.status(404).json({ msg: "User Not Exist " });
+    return res.status(404).json({ msg: "User Not Exist " });
   }
   if (decodedToken.id) {
     const User = await UserModel.findOneAndUpdate(
@@ -84,12 +85,12 @@ UserRoute.get("/verification", async (req, res) => {
         isVerified: true,
       }
     );
-    res.json({
+   return res.json({
       msg: "User Verified , Please Signin Now",
       username: User.firstname,
     });
   } else {
-    res.status(404).json({ msg: "Please Signup Again" });
+   return res.status(404).json({ msg: "Please Signup Again" });
   }
 });
 
@@ -102,6 +103,7 @@ UserRoute.post("/signin", async (req, res) => {
   });
   if (nonVerified) {
     res.status(404).json({ msg: "Please Verify" });
+    return;
   }
   const User = await UserModel.findOne({
     email,
@@ -109,10 +111,12 @@ UserRoute.post("/signin", async (req, res) => {
   });
   if (!User) {
     res.status(422).json({ msg: "Invalid User" });
+    return;
   }
   const hashedPassword = await bcrypt.compare(password, User.password);
   if (!hashedPassword) {
     res.status(404).json("Email or password is incorrect");
+    return;
   }
   const Wallet = await AccountModel.create({
     userId: User._id,
@@ -125,7 +129,7 @@ UserRoute.post("/signin", async (req, res) => {
 UserRoute.get("/me", userMiddleware, async (req, res) => {
   const _id = req.data;
   const User = await UserModel.findOne({ _id });
-  res.json(User.firstname);
+  res.json({response:[User.firstname,User.lastname]});
 });
 
 UserRoute.put("/me", userMiddleware, async (req, res) => {
@@ -163,6 +167,18 @@ UserRoute.get("/bulk", userMiddleware, async (req, res) => {
     res.status(502).json("Server Not working");
   }
 });
+
+UserRoute.get('/info',userMiddleware,async(req,res)=>{
+  const userId=req.query.to
+  try{
+    const User=await UserModel.findOne({_id:userId})
+    return res.json({response:[User.firstname,User.lastname]})
+
+  }catch(err){
+    console.log(err)
+  }
+
+})
 
 module.exports = {
   UserRoute,

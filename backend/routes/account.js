@@ -1,4 +1,4 @@
-const { Router } = require("express");
+const { Router, response } = require("express");
 const AccountRoute = Router();
 const userMiddleware = require("../middleware/user");
 const { UserModel, AccountModel } = require("../db");
@@ -34,10 +34,10 @@ AccountRoute.post("/transfer", userMiddleware, async (req, res) => {
         { $inc: { balance: +amount } }
       ).session(session);
       await session.commitTransaction();
-      res.json("Upadated");
+      res.json({response:"Amount Tranfered"});
     } else {
       await session.abortTransaction();
-      res.json("insufficeint balance");
+      res.json({response:"Insufficeint balance"});
     }
   } catch (err) {
     console.log(err);
