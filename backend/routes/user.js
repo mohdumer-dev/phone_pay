@@ -179,6 +179,11 @@ UserRoute.get('/info',userMiddleware,async(req,res)=>{
   }
 
 })
+UserRoute.get('/confirmation',userMiddleware,async(req,res)=>{
+  const userId=req.data
+  const User=await UserModel.findOne({_id:userId})
+  res.json({response:User})
+})
 
 module.exports = {
   UserRoute,

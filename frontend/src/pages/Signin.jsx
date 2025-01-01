@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Eye, EyeOff, Loader2, Mail, Lock } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
@@ -12,6 +12,34 @@ const SigninPage = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [message, setMessage] = useState(null); // State for error/success message
   const [messageType, setMessageType] = useState('info'); // 'success', 'error', or 'info'
+  const [isCheckingToken, setIsCheckingToken] = useState(true)
+
+  useEffect(() => {
+    const checkToken = async () => {
+      const token =localStorage.getItem('token')
+      if(!token){
+        setIsCheckingToken(false)
+        return
+      }
+      try {
+        const response = await axios.get('http://192.168.29.252:3000/api/v1/user/confirmation', {
+          headers: {
+            'token': localStorage.getItem('token')
+          }
+        });
+        const data = await response.data.response;
+        if (data) {
+          return navigate('/payment'); // If token is valid, redirect to payment
+        }
+      } catch (error) {
+        console.error('Error checking token:', error);
+      } finally {
+        setIsCheckingToken(false); // Finish token check
+      }
+    }
+    checkToken()
+
+  }, [navigate])
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -25,10 +53,10 @@ const SigninPage = () => {
       localStorage.setItem('token', response.data.msg);
       setMessage("Login Successful");
       setMessageType('success'); // Show success message
-      setInterval(()=>{
-        navigate('/dashboard');
-      },1000)
-      
+      setInterval(() => {
+        navigate('/payment');
+      }, 1000)
+
     } catch (error) {
       console.error('Signin failed:', error);
       setMessage('Signin failed. Please check your credentials and try again.');
@@ -42,10 +70,10 @@ const SigninPage = () => {
     <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-gray-50 to-gray-100">
       <div className="bg-white bg-opacity-90 backdrop-filter backdrop-blur-lg rounded-lg shadow-2xl p-8 w-full max-w-md transform transition-all duration-300 ease-in-out hover:scale-105">
         <h1 className="text-3xl font-bold mb-6 text-center text-gray-800">Welcome Back</h1>
-        
+
         {/* Display error or success message */}
         {message && <MessageDisplay message={message} type={messageType} />}
-        
+
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="space-y-2">
             <label htmlFor="email" className="block text-sm font-medium text-gray-700">

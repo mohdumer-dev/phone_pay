@@ -2,14 +2,26 @@ const jwt = require("jsonwebtoken");
 const JWT_LOGIN = "njkdnakjs-dd99asd-asdasd98avbbgnswrgs88";
 
 function userMiddleware(req, res, next) {
-  // Token from either localstorage or cookie
-  const token = req.headers['token']
-  if (!token) {
-    return res.status(401).json({ msg: "Token is required for authentication" });
+  try {
+    const token = req.headers["token"];
+
+    if (!token) {
+      return res.status(401).json({ redirectTo: "/signin" });
+    }
+
+    const decodedToken = jwt.verify(token, JWT_LOGIN);
+    req.data = decodedToken.id;
+
+    if (req.originalUrl === "/signup" || req.originalUrl === "/signin") {
+      return res.status(403).json({ redirectTo: "/dashboard" });
+    }
+
+    next();
+  } catch (err) {
+    console.error("Token verification failed:", err.message);
+
+    return res.status(401).json({ redirectTo: "/signin" });
   }
-  const decodedToken = jwt.verify(token, JWT_LOGIN);
-  req.data=decodedToken.id
-  next()
 }
 
 module.exports = userMiddleware;
